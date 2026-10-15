@@ -1,14 +1,21 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { Toaster } from 'sonner'
+import { AppShell } from './components/layout/AppShell'
 import { createDemoInvestigation } from './api/endpoints'
 import { HomePage } from './pages/HomePage'
-import { InvestigationPage } from './pages/InvestigationPage'
 import { NewInvestigationPage } from './pages/NewInvestigationPage'
 
-type Route = { page: 'home' | 'new' | 'investigation'; id?: string }
+const InvestigationPage = lazy(() => import('./pages/InvestigationPage').then((module) => ({ default: module.InvestigationPage })))
+const ChangesPage = lazy(() => import('./pages/ChangesPage').then((module) => ({ default: module.ChangesPage })))
+const ExperimentsPage = lazy(() => import('./pages/ExperimentsPage').then((module) => ({ default: module.ExperimentsPage })))
+
+type Route = { page: 'home' | 'new' | 'investigation' | 'changes' | 'experiments'; id?: string }
 
 function readRoute(): Route {
   const parts = window.location.pathname.split('/').filter(Boolean)
   if (parts[0] === 'new') return { page: 'new' }
+  if (parts[0] === 'investigations' && parts[1] && parts[2] === 'changes') return { page: 'changes', id: parts[1] }
+  if (parts[0] === 'investigations' && parts[1] && parts[2] === 'experiments') return { page: 'experiments', id: parts[1] }
   if (parts[0] === 'investigations' && parts[1]) return { page: 'investigation', id: parts[1] }
   return { page: 'home' }
 }
@@ -33,30 +40,17 @@ function App() {
   async function startDemo() {
     setDemoLoading(true)
     setError(null)
-    try {
-      const result = await createDemoInvestigation()
-      navigate(`/investigations/${result.investigation_id}`)
-    } catch (demoError) {
-      setError(demoError instanceof Error ? demoError.message : 'Could not start the demo')
-    } finally {
-      setDemoLoading(false)
-    }
+    try { const result = await createDemoInvestigation(); navigate(`/investigations/${result.investigation_id}`) } catch (demoError) { setError(demoError instanceof Error ? demoError.message : 'Could not start the demo') } finally { setDemoLoading(false) }
   }
 
-  return (
-    <main className="app-shell">
-      <header className="topbar">
-        <button className="brand-button" onClick={() => navigate('/')} aria-label="Go to DataWitness overview">
-          <span className="brand-mark">DW</span>
-          <span><strong>DataWitness</strong><span className="eyebrow">REPRODUCIBLE DATA DEBUGGING</span></span>
-        </button>
-        <span className="status-pill"><span className="status-dot" /> Local mode</span>
-      </header>
-      {route.page === 'home' && <HomePage onNew={() => navigate('/new')} onDemo={() => void startDemo()} demoLoading={demoLoading} error={error} />}
-      {route.page === 'new' && <NewInvestigationPage onCreated={(id) => navigate(`/investigations/${id}`)} onBack={() => navigate('/')} />}
-      {route.page === 'investigation' && route.id && <InvestigationPage id={route.id} onBack={() => navigate('/')} />}
-    </main>
-  )
+  const pageTitle = route.page === 'home' ? 'Overview' : route.page === 'new' ? 'New investigation' : route.page === 'changes' ? 'Changes' : route.page === 'experiments' ? 'Experiments' : 'Investigation overview'
+  return <><AppShell active={route.page === 'home' ? 'overview' : route.page} investigationId={route.id} pageTitle={pageTitle} onNavigate={navigate}><Suspense fallback={<div className="loading-panel"><div className="loading-spinner" />Loading view…</div>}>
+    {route.page === 'home' && <HomePage onNew={() => navigate('/new')} onDemo={() => void startDemo()} onOpenInvestigation={(id) => navigate(`/investigations/${id}`)} demoLoading={demoLoading} error={error} />}
+    {route.page === 'new' && <NewInvestigationPage onCreated={(id) => navigate(`/investigations/${id}`)} onBack={() => navigate('/')} />}
+    {route.page === 'investigation' && route.id && <InvestigationPage id={route.id} onBack={() => navigate('/')} onNavigate={navigate} />}
+    {route.page === 'changes' && route.id && <ChangesPage id={route.id} onBack={() => navigate(`/investigations/${route.id}`)} />}
+    {route.page === 'experiments' && route.id && <ExperimentsPage id={route.id} onBack={() => navigate(`/investigations/${route.id}`)} />}
+  </Suspense></AppShell><Toaster position="bottom-right" richColors closeButton /></>
 }
 
 export default App

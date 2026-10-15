@@ -1,0 +1,20 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Check, CircleDot, Database, Gauge, History, TimerReset } from 'lucide-react'
+import { motion } from 'motion/react'
+import { getExperiments, getInvestigation } from '../api/endpoints'
+import type { Experiment, InvestigationSummary } from '../api/types'
+import { PageBack } from '../components/layout/AppShell'
+import { MetricCard } from '../components/ui/MetricCard'
+import { StatusBadge } from '../components/ui/StatusBadge'
+
+export function ExperimentsPage({ id, onBack }: { id: string; onBack: () => void }) {
+  const [summary, setSummary] = useState<InvestigationSummary | null>(null)
+  const [experiments, setExperiments] = useState<Experiment[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => { let active = true; Promise.all([getInvestigation(id), getExperiments(id)]).then(([next, history]) => { if (active) { setSummary(next); setExperiments(history) } }).catch(() => undefined).finally(() => { if (active) setLoading(false) }); return () => { active = false } }, [id])
+  const matches = useMemo(() => experiments.filter((experiment) => experiment.matches_target).length, [experiments])
+  if (loading || !summary) return <div className="loading-panel"><div className="loading-spinner" />Loading experiment history…</div>
+  return <div className="experiments-page"><PageBack onBack={onBack} /><div className="page-title-row"><div><span className="eyebrow">Controlled search</span><h1>Experiment history</h1><p>Every candidate set below was tested against the real updated metric.</p></div><StatusBadge status={summary.status} /></div><section className="metric-grid experiment-metrics"><MetricCard label="Experiments completed" value={`${summary.experiments_completed} / ${summary.experiment_budget}`} detail="Configured search budget" icon={History} tone="brand" /><MetricCard label="Cache hits" value={summary.cache_hits.toString()} detail="Reused metric results" icon={Database} /><MetricCard label="Target matches" value={matches.toString()} detail="Experiments matching target" icon={Check} tone="success" /><MetricCard label="Witness size" value={summary.candidate_set_size.toString()} detail="Final candidate records" icon={Gauge} tone="warning" /></section><section className="content-card experiment-history-card"><div className="section-heading"><div><span className="eyebrow">Search trace</span><h2>Candidate set reduction</h2></div><span className="stop-reason">{summary.stop_reason ?? 'Minimality established within budget'}</span></div><div className="experiment-list">{experiments.map((experiment, index) => <motion.article className={`experiment-item ${experiment.matches_target ? 'experiment-match' : ''}`} key={experiment.sequence_number} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index * .03, .3) }}><div className="experiment-marker">{experiment.matches_target ? <Check size={14} /> : <CircleDot size={13} />}</div><div className="experiment-detail"><div className="experiment-title"><strong>Experiment #{experiment.sequence_number}</strong>{experiment.matches_target && <span className="verified-badge">Matched target</span>}{experiment.cache_hit && <span className="cache-label">Cache hit</span>}</div><p>Tested <strong>{experiment.selected_change_count}</strong> selected changes</p></div><div className="experiment-output"><span>Output</span><strong>{formatNumber(experiment.output_value)}</strong></div><div className="experiment-target"><span>Target distance</span><strong>{experiment.distance_from_target === null ? '—' : formatNumber(experiment.distance_from_target)}</strong></div><div className="experiment-duration"><TimerReset size={14} />{Math.round(experiment.duration_ms)} ms</div></motion.article>)}</div>{experiments.length === 0 && <div className="empty-result"><History size={18} /> No experiments recorded yet.</div>}</section></div>
+}
+
+function formatNumber(value: number | null) { return value === null ? '—' : new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(value) }

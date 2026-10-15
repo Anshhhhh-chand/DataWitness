@@ -37,9 +37,14 @@ def test_upload_investigate_and_download_reports() -> None:
             time.sleep(0.01)
         assert summary["status"] == "completed"
         assert summary["reproduction_status"] == "verified_reproducer"
+        assert summary["experiments_completed"] > 0
+        assert client.get("/api/investigations").status_code == 200
         assert client.get(f"/api/investigations/{investigation_id}/changes").json()["total"] == 2
         assert client.get(f"/api/investigations/{investigation_id}/findings").status_code == 200
         assert client.get(f"/api/investigations/{investigation_id}/experiments").status_code == 200
+        replay = client.post(f"/api/investigations/{investigation_id}/replay")
+        assert replay.status_code == 200
+        assert replay.json()["matches_target"] is True
         for report_format in ("html", "json", "csv"):
             report = client.get(f"/api/investigations/{investigation_id}/report?format={report_format}")
             assert report.status_code == 200

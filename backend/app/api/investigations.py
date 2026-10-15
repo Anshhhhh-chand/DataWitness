@@ -1,12 +1,14 @@
 """Investigation creation, state, progress, changes and evidence endpoints."""
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.api.dependencies import get_investigation_service, get_repository
+from app.config import get_settings
 from app.domain.entities import DataWitnessError
 from app.domain.schemas import (
     ChangeResponse,
@@ -16,7 +18,11 @@ from app.domain.schemas import (
     InvestigationCreatedResponse,
     InvestigationCreateRequest,
     InvestigationSummary,
+    ReplayResponse,
 )
+from app.engine.csv_loader import load_csv
+from app.engine.metric_engine import calculate_metric, matches_target
+from app.engine.patch_engine import apply_change_set
 from app.services.progress_service import as_sse
 
 router = APIRouter(prefix="/investigations", tags=["investigations"])
@@ -59,7 +65,17 @@ def _summary(record: Any) -> InvestigationSummary:
         created_at=record.created_at,
         started_at=record.started_at,
         completed_at=record.completed_at,
+        experiments_completed=len(result.experiments) if result else 0,
+        experiment_budget=get_settings().experiment_budget,
+        cache_hits=sum(experiment.cache_hit for experiment in result.experiments) if result else 0,
+        candidate_set_size=(len(result.minimal_change_ids) if result else (diff.summary.changed if diff else 0)),
     )
+
+
+@router.get("", response_model=list[InvestigationSummary])
+def list_investigations(limit: int = 10) -> list[InvestigationSummary]:
+    records = get_repository().recent_investigations(limit=min(max(limit, 1), 50))
+    return [_summary(record) for record in records]
 
 
 @router.post("", response_model=InvestigationCreatedResponse)
@@ -110,6 +126,33 @@ def cancel_investigation(investigation_id: str) -> InvestigationSummary:
     return _summary(record)
 
 
+@router.post("/{investigation_id}/replay", response_model=ReplayResponse)
+def replay_witness(investigation_id: str) -> ReplayResponse:
+    record = _record_or_404(investigation_id)
+    if not record.result or not record.result.diff or not record.result.new_result:
+        raise HTTPException(status_code=409, detail="The investigation has no verified witness to replay.")
+    before = get_repository().get_upload(record.before_upload_id)
+    if before is None:
+        raise HTTPException(status_code=404, detail="The baseline dataset is not available.")
+    table = load_csv(Path(before.path), get_settings().max_rows)
+    patched = apply_change_set(
+        table,
+        record.result.diff.changes,
+        record.result.minimal_change_ids,
+        record.id_column,
+    )
+    reproduced = calculate_metric(patched, record.metric).value
+    target = record.result.new_result.value
+    return ReplayResponse(
+        investigation_id=record.id,
+        selected_change_ids=record.result.minimal_change_ids,
+        reproduced_value=reproduced,
+        target_value=target,
+        matches_target=matches_target(reproduced, target),
+        message="The verified witness was applied to the baseline dataset again.",
+    )
+
+
 @router.get("/{investigation_id}/changes", response_model=ChangesResponse)
 def list_changes(
     investigation_id: str,
@@ -131,7 +174,10 @@ def list_changes(
         and (not search or search.lower() in change.record_id.lower())
         and (verified is None or (change.id in minimal) == verified)
     ]
-    if sort == "change_type":
+    findings_by_change = {finding.change_id: finding.score for finding in (record.result.findings if record.result else [])}
+    if sort == "impact_desc":
+        changes.sort(key=lambda item: (-findings_by_change.get(item.id, 0.0), item.record_id))
+    elif sort == "change_type":
         changes.sort(key=lambda item: (item.kind.value, item.record_id))
     else:
         changes.sort(key=lambda item: item.record_id)
@@ -146,7 +192,7 @@ def list_changes(
             changed_columns=change.changed_columns,
             before_values=change.before_values,
             after_values=change.after_values,
-            heuristic_impact=change.heuristic_impact,
+            heuristic_impact=findings_by_change.get(change.id, change.heuristic_impact),
             in_minimal_set=change.id in minimal,
         )
         for change in changes[start : start + page_size]

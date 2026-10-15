@@ -72,6 +72,19 @@ class InvestigationSummary(BaseModel):
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
+    experiments_completed: int = 0
+    experiment_budget: int = 0
+    cache_hits: int = 0
+    candidate_set_size: int = 0
+
+
+class ReplayResponse(BaseModel):
+    investigation_id: str
+    selected_change_ids: list[str]
+    reproduced_value: float | None
+    target_value: float | None
+    matches_target: bool
+    message: str
 
 
 class ChangeResponse(BaseModel):

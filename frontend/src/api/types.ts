@@ -48,6 +48,10 @@ export type InvestigationSummary = {
   created_at: string
   started_at: string | null
   completed_at: string | null
+  experiments_completed: number
+  experiment_budget: number
+  cache_hits: number
+  candidate_set_size: number
 }
 
 export type ProgressEvent = {
@@ -93,4 +97,13 @@ export type Experiment = {
   cache_hit: boolean
   duration_ms: number
   created_at: string
+}
+
+export type ReplayResponse = {
+  investigation_id: string
+  selected_change_ids: string[]
+  reproduced_value: number | null
+  target_value: number | null
+  matches_target: boolean
+  message: string
 }
