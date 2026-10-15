@@ -1,0 +1,13 @@
+services:
+  datawitness:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATAWITNESS_ENV: production
+      DATAWITNESS_DATA_DIR: /app/var/data
+    volumes:
+      - datawitness-data:/app/var/data
+
+volumes:
+  datawitness-data:
