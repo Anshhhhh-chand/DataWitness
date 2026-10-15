@@ -9,7 +9,7 @@ FROM python:3.12.2-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock ./
-RUN pip install --no-cache-dir uv && uv sync --frozen --no-dev
+RUN pip install --no-cache-dir uv==0.5.23 && uv sync --frozen --no-dev
 COPY backend/app ./app
 COPY data /app/data
 COPY --from=frontend-build /app/frontend/dist /app/backend/app/static
