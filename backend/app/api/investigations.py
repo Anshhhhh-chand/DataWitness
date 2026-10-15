@@ -73,7 +73,7 @@ def create_investigation(request: InvestigationCreateRequest) -> InvestigationCr
         )
     except DataWitnessError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return InvestigationCreatedResponse(investigation_id=record.id, status=record.status.value)
+    return InvestigationCreatedResponse(investigation_id=record.id, status="queued")
 
 
 @router.get("/{investigation_id}", response_model=InvestigationSummary)

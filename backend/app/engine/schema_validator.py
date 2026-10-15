@@ -7,6 +7,21 @@ import polars as pl
 from app.domain.entities import ValidationError
 from app.domain.metric_models import MetricSpec
 
+_NUMERIC_DTYPES = {
+    pl.Int8,
+    pl.Int16,
+    pl.Int32,
+    pl.Int64,
+    pl.Int128,
+    pl.UInt8,
+    pl.UInt16,
+    pl.UInt32,
+    pl.UInt64,
+    pl.Float32,
+    pl.Float64,
+    pl.Decimal,
+}
+
 
 @dataclass(frozen=True)
 class DatasetSchema:
@@ -62,5 +77,5 @@ def validate_metric(table: pl.DataFrame, metric: MetricSpec) -> None:
     if not metric.column or metric.column not in table.columns:
         raise ValidationError(f"The metric column '{metric.column}' is missing.")
     dtype = table.schema[metric.column]
-    if dtype not in pl.NUMERIC_DTYPES:
+    if dtype not in _NUMERIC_DTYPES:
         raise ValidationError(f"The metric column '{metric.column}' must be numeric.")

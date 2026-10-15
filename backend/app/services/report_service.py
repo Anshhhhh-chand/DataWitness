@@ -14,7 +14,7 @@ from app.storage.repositories import InvestigationRecord, Repository
 def _jsonable(value: Any) -> Any:
     if hasattr(value, "model_dump"):
         return _jsonable(value.model_dump(mode="json"))
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return {key: _jsonable(item) for key, item in asdict(value).items()}
     if isinstance(value, Enum):
         return value.value
@@ -68,8 +68,10 @@ class ReportService:
         )
         result = record.result
         minimal = set(result.minimal_change_ids) if result else set()
-        for change in result.diff.changes if result and result.diff else []:
-            finding = next((item for item in result.findings if item.change_id == change.id), None)
+        findings = result.findings if result else []
+        changes = result.diff.changes if result is not None and result.diff is not None else []
+        for change in changes:
+            finding = next((item for item in findings if item.change_id == change.id), None)
             writer.writerow(
                 [
                     change.record_id,

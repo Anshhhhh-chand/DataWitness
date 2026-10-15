@@ -1,6 +1,7 @@
 """Count, sum and average calculations with stable tolerance rules."""
 
 import math
+from typing import Any, cast
 
 import polars as pl
 
@@ -16,10 +17,16 @@ def calculate_metric(table: pl.DataFrame, metric: MetricSpec) -> MetricResult:
     assert metric.column is not None
     values = table.get_column(metric.column).drop_nulls()
     if metric.kind == "sum":
-        value = values.sum()
-    else:
-        value = values.mean()
-    return MetricResult(kind=metric.kind, column=metric.column, value=float(value or 0.0))
+        return MetricResult(
+            kind=metric.kind,
+            column=metric.column,
+            value=float(cast(Any, values.sum()) or 0.0),
+        )
+    return MetricResult(
+        kind=metric.kind,
+        column=metric.column,
+        value=float(cast(Any, values.mean()) or 0.0),
+    )
 
 
 def metric_distance(actual: float, target: float, tolerance: float = 1e-9) -> float:
