@@ -6,7 +6,6 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -19,7 +18,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    environment: str = Field(default="development", alias="ENV")
+    environment: str = Field(default="development")
     data_dir: Path = Field(default=PROJECT_ROOT / "var" / "data")
     max_upload_bytes: int = 100 * 1024 * 1024
     max_rows: int = 250_000

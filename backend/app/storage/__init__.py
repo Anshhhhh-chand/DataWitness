@@ -1,1 +1,1 @@
-"""Persistence helpers."""
+"""Local storage primitives."""
