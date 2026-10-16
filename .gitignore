@@ -15,3 +15,4 @@ backend/var/
 var/data/*
 !var/data/.gitkeep
 *.db
+.opencode/
