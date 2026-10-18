@@ -16,4 +16,4 @@ COPY --from=frontend-build /app/frontend/dist /app/backend/app/static
 RUN mkdir -p /app/var/data
 ENV DATAWITNESS_ENV=production DATAWITNESS_DATA_DIR=/app/var/data
 EXPOSE 8000
-CMD [".venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/bin/sh", "-c", "exec /app/backend/.venv/bin/python -m uvicorn app.main:app --app-dir /app/backend --host 0.0.0.0 --port \"${PORT:-8000}\""]

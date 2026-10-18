@@ -270,7 +270,28 @@ Open <http://localhost:8000>.
 Stop the container with:
 
 ```bash
+docker compose down
 ```
+
+### Deploy on Render
+
+Create a **Web Service** from the GitHub repository and choose **Docker** as
+the runtime. Use these settings:
+
+| Setting | Value |
+| --- | --- |
+| Branch | `main` |
+| Root directory | blank |
+| Dockerfile path | `Dockerfile` |
+| Health check path | `/api/health` |
+
+Leave **Docker Command** blank so Render uses the command in the Dockerfile.
+The image starts Uvicorn with an absolute project path and reads Render's
+`PORT` environment variable automatically. If an earlier attempt configured
+the command as `.venv/bin/uvicorn ...`, remove that override before redeploying;
+that relative path is the cause of the status 127 startup failure.
+
+No API keys or secret environment variables are required for the demo.
 
 ## Quality checks
 
